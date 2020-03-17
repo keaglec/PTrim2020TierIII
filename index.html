@@ -1,0 +1,468 @@
+<html>
+
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <!--
+  ArcGIS API for JavaScript, https://js.arcgis.com
+  For more information about the layers-scenelayer-edges sample, read the original sample description at developers.arcgis.com.
+  https://developers.arcgis.com/javascript/latest/layers-scenelayer-edges/index.html
+  -->
+    <title>Query features from a FeatureLayer - 4.8</title>
+
+    <link rel="stylesheet" href="https://js.arcgis.com/4.13/esri/css/main.css">
+    <script src="https://js.arcgis.com/4.13/"></script>
+
+    <style>
+      html,
+      body,
+      #viewDiv {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #infoDiv {
+        background-color: white;
+        border-radius: 4px;
+        color: black;
+        padding: 6px;
+        width: 580px;
+      }
+      #results {
+        font-weight: bolder;
+      }
+      #fixedKey {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+      }
+    </style>
+
+    <script>
+      require([
+          "esri/Map",
+          "esri/views/MapView",
+          "esri/layers/Layer",
+          "esri/layers/FeatureLayer",
+          "esri/layers/TileLayer",
+          "esri/layers/GraphicsLayer",
+          "esri/geometry/geometryEngine",
+          "esri/Graphic",
+          "esri/widgets/Print",
+          "esri/widgets/Sketch",
+          "esri/widgets/DistanceMeasurement2D",
+          "esri/widgets/BasemapGallery",
+          "dojo/on",
+          "dojo/dom",
+          "dojo/dom-construct",
+          "dojo/domReady!"
+        ],
+        function(
+          Map, MapView,
+          Layer,
+          FeatureLayer,
+          TileLayer,
+          GraphicsLayer,
+          geometryEngine,
+          Graphic, Print,
+          Sketch, DistanceMeasurement2D, BasemapGallery,
+          on, dom, domConstruct
+        ) {
+          //define variable to hold CircuitHighlight last update date
+          updateString = "";
+          //specify trim layers for year:
+          
+          var pTrim2021 = ['2AR7H4','2BB531','2G407','2H377','2H378','2H574','2H577','2H579','2H587','2K534','2K535','2M486','2M599','2MA571','2MA573','2MA582','2QB547','2R1K3','2R1K4','2R436','2W444','2WB585','2WB594','2WB596','3A356','3A5N3','3AG229','3B056','3B057','3D384','3D386','3G005','3G036','3G323','3H081','3H155','3J198','3J199','3J295','3KG298','3KG301','3KG302','3LG312','3MG337','3R046','3R050','3R052','3W001','4AH135','4AH365','4D124','4E284','4H008','4K016','4K017','4K019','4KH194','4M163','4MG208','4UH328','4UH331','4UH333','4UH338','4UH369','4W236','4X3P1','4X6P2','5B373','5B376','5D058','5D278','5D281','5G112','5G171','5GK221','5K141','5M103','5M104','5M108','5MK242','5MK243','5MK244','5MK245','5MK248','5MK316','5R026','5R167','5R169','5R1N1','5R1N2','5R393','5RK261','5RK262','5RK263','5RK264','5RK265','5SK1N5','5SK346','5SK347','5U097','5U099','5U217','5U282','5U283','5U8K5','6BL126','6BL128','6D615','6DL837','6DL839','6DL843','6HL814','6J1P3','6J896','6K446','6K447','6K448','6K9P3','6L4H5','6L4H7','6Q4K8','6RL956','6U601','6U602','6U603','6U604','6U605','6U606','6UL4K2','6UL848','6W802','7B701','7D687','7D688','7D689','7D8K2','7D9H7','7D9H8','7EM7H2','7EM7H3','7EM819','7EM823','7F784','7H871','7H994','7H996','7J864','7J866','7J883','7J884','7MM882','7RM1K6','7T904','7T981','7T983','7UM655','7UM656','7UM917','7UM918','7WM628','7WM632','7WM772','7WM773','7WM774','7WM775','7Z621','7Z623','7Z642','7ZM836','8A677','8A712','8AX652','8D734','8D735','8D987','8E494','8EX246','8G935','8G971','8G972','8G973','8G974','8G977','8G979','8GX8H6','8GX8H7','8HX4P3','8M5P6','8Q6K6','8QR729','8QR893','8QR895','8QR912','8RR901','8RR903','8RX741','8RX742','8RX743','8RX975','8SM3N8','8T2P6','8T925','8W3P9','8W5N5','8W663','8WF1H7','8XR647','8XR924','8XR933','9B721','9B722','9B915','9B916','9C5K1','9DF2K7','9EU4N7','9EU4N8','9EU6H7','9EU6H8','9J958','9R989'];
+          //populate circuit dropdown from array:
+          var select = document.getElementById("circuitInput"); 
+          for(var i = 0; i < pTrim2021.length; i++) {
+            var opt = pTrim2021[i];
+            var el = document.createElement("option");
+            el.text = opt;
+            el.value = opt;
+            select.add(el);
+          };
+          
+          //build secondary layer
+          var esMapLayer = new TileLayer({
+            url: "https://tiles.arcgis.com/tiles/0cYxNkh7FJosf1xi/arcgis/rest/services/SecondaryTile10112019/MapServer",
+            title: "ES_Secondary",
+          });
+          
+          //construct renderer for Prescriptive Trim Layer
+          var pTrimRenderer = {
+            type: "unique-value", // autocasts as new UniqueValueRenderer()
+            field: "TrimRating",
+            //defaultSymbol: { 
+            // type: "simple-marker", 
+            //size: 6, 
+            // outline: {
+            //   color: "black",
+            //   size: 1
+            // } },  // 
+            uniqueValueInfos: [{
+              // All features with value of "Heavy" will be red
+              value: "H",
+              symbol: {
+                type: "simple-marker",
+                color: "red",
+                size: 5
+              }
+            }, {
+              // All features with value of "Medium" will be red
+              value: "M",
+              symbol: {
+                type: "simple-marker",
+                color: "red",
+                size: 5
+              }
+            }, {
+              // All features with value of "Light" will be red
+              value: "L",
+              symbol: {
+                type: "simple-marker",
+                color: "red",
+                size: 5
+              }
+            }, {
+              // All features with value of "X" will be cyan triangles
+              value: "X",
+              symbol: {
+                type: "simple-marker",
+                style: "triangle",
+                color: "cyan",
+                size: 8
+              }
+            }, {
+              //All features with value of "N" will be gray
+              value: "N",
+              symbol: {
+                type: "simple-marker",
+                color: "gray",
+                size: 4.5
+              }
+            }, {
+              //All features with value of "C" will be gray
+              value: "C",
+              symbol: {
+                type: "simple-marker",
+                color: "gray",
+                size: 4.5
+              }
+            }],
+          };
+          //construct renderer for Segments Layer
+          var pSegRenderer = {
+            type: "unique-value", // autocasts as new UniqueValueRenderer()
+            field: "TrimRating2019",
+            //defaultSymbol: { 
+            // type: "simple-marker", 
+            //size: 6, 
+            // outline: {
+            //   color: "black",
+            //   size: 1
+            // } },  // 
+            uniqueValueInfos: [{
+              // All features with value of "Heavy" will be red
+              value: "H",
+              symbol: {
+                type: "simple-line",
+                color: "red",
+                width: "3px"
+              }
+            }, {
+              // All features with value of "Medium" will be red
+              value: "M",
+              symbol: {
+                type: "simple-line",
+                color: "red",
+                width: "3px"
+              }
+            }, {
+              // All features with value of "Light" will be red
+              value: "L",
+              symbol: {
+                type: "simple-line",
+                color: "red",
+                width: "3px"
+              }
+            }, {
+              //All features with value of "N" will be gray
+              value: "N",
+              symbol: {
+                type: "simple-line",
+                color: "gray",
+                width: "3px"
+              }
+            }, {
+              //All features with value of "C" will be gray
+              value: "C",
+              symbol: {
+                type: "simple-line",
+                color: "gray",
+                width: "3px"
+              }
+            }, {
+              //All features with value of "X" will be red
+              value: "X",
+              symbol: {
+                type: "simple-line",
+                color: "red",
+                width: "3px"
+              }
+            }],
+          };
+          //construct popup template for Prescripive Trim layer:
+          var popupPTrim = {
+            "title": "{Street} Poles {Poles}",
+            "content": "Primary:{PRI_ID}<br>Secondary:{SEC_ID}<br>Circuit:{Circuit}"
+          };
+          //construct labels for Prescriptive Trim layer:
+          const labelClass = {
+            // autocasts as new LabelClass()
+            minScale: 4000,
+            maxScale: 1750,
+            symbol: {
+              type: "text", // autocasts as new TextSymbol()
+              color: "red",
+              haloColor: "black",
+              haloSize: 1,
+              font: {
+                // autocast as new Font()
+                family: "Calibri",
+                size: 11,
+                weight: "normal"
+              }
+            },
+            where: "TrimRating IN ('H','M','L')",
+            labelPlacement: "Best position",
+            labelExpressionInfo: {
+              expression: "$feature.Poles"
+            }
+          };
+          //build Prescriptive Trim layer
+          var PTrimLayer = new FeatureLayer({
+            url: "https://services1.arcgis.com/0cYxNkh7FJosf1xi/arcgis/rest/services/PrescriptiveTrim_View/FeatureServer/0",
+            definitionExpression: "Circuit IN ("+"'" + pTrim2021.join("','") + "'"+")",
+            renderer: pTrimRenderer,
+            minScale: 24000,
+            popupTemplate: popupPTrim,
+            labelingInfo: [labelClass]
+          });
+          //build span Segments Layer
+          var PSegmentsLayer = new FeatureLayer({
+            url: "https://services1.arcgis.com/0cYxNkh7FJosf1xi/arcgis/rest/services/SpanSegments2_View/FeatureServer/0",
+            definitionExpression: "Circuit IN ("+"'" + pTrim2021.join("','") + "'"+")",
+            renderer: pSegRenderer,
+            minScale: 24000,
+            popupTemplate: popupPTrim,
+            labelingInfo:[labelClass]
+          });
+          var occsUrl =
+            "https://services1.arcgis.com/0cYxNkh7FJosf1xi/arcgis/rest/services/CircuitHighlight2_5_2019/FeatureServer/0";
+          var queryOccs = dom.byId("query-occs");
+          // occurrences
+          var occsLayer = new FeatureLayer({
+            url: occsUrl,
+          });
+          // GraphicsLayer for displaying results
+          var resultsLayer = new GraphicsLayer();
+          var sketchLayer = new GraphicsLayer();
+          var map = new Map({
+            basemap: "topo",
+            //layers: [wellsLayer, quakesLayer, resultsLayer]
+            layers: [resultsLayer, esMapLayer, sketchLayer, PTrimLayer, PSegmentsLayer]
+          });
+          var view = new MapView({
+            container: "viewDiv",
+            map: map,
+            zoom: 10,
+            center: [-73, 40.7]
+          });
+          //add search bar
+          view.ui.add("infoDiv", "top-right");
+          var closeButton = dom.byId("close");
+          on(closeButton, "click", function() {
+            view.ui.empty("bottom-right");
+            view.ui.empty("bottom-left");
+          });
+          var printButton = dom.byId("print");
+          on(printButton, "click", function() {
+            view.ui.empty("bottom-right");
+            if (dom.byId("circuitInput").value) { //check for circuit number in input
+              var title = dom.byId("circuitInput").value
+            } else {
+              var title = "PSEGLI ES Secondary Map"
+            };
+            var print = new Print({
+              view: view,
+              // specify your own print service
+              printServiceUrl: "https://utility.arcgisonline.com/arcgis/rest/services/Utilities/PrintingTools/GPServer/Export%20Web%20Map%20Task",
+              templateOptions: {
+                title: title,
+                author: "PSEGLI",
+                copyright: "PSEGLI",
+                legendEnabled: false
+              }
+            });
+            view.ui.add(print, "bottom-right");
+          });
+          var queryOccs = dom.byId("query-occs");
+          on(queryOccs, "click", function() {
+            queryOccurrences()
+              .then(displayResults);
+          });
+          var nextButton = dom.byId("next");
+          on (nextButton, "click", function(){
+            select.selectedIndex = select.selectedIndex+1;
+            queryOccurrences()
+              .then(displayResults);
+            
+          });
+          //add basemap toggle
+          var basemapGallery = new BasemapGallery({
+            view: view
+          });
+          var basemapSwitch = dom.byId("basemap");
+          on(basemapSwitch, "click", function() {
+            view.ui.empty("bottom-right");
+            view.ui.add(basemapGallery, {
+              position: "bottom-right"
+            });
+          });
+          var drawButton = dom.byId("draw");
+          on(drawButton, "click", function() {
+            view.ui.empty("bottom-left");
+            var sketch = new Sketch({
+              view: view,
+              layer: sketchLayer
+            });
+            view.ui.add(sketch, "bottom-left")
+          });
+          //listen for click on measure button, call measure widget
+          var measureButton = dom.byId("measure");
+          on(measureButton, "click", function() {
+            view.ui.empty("bottom-left");
+            var measure = new DistanceMeasurement2D({
+              view: view
+            });
+            measure.viewModel.newMeasurement();
+            view.ui.add(measure, "bottom-left")
+          });
+          // add print widget
+          view.when(function() {
+            if (dom.byId("circuitInput").value) {
+              var title = dom.byid("circuitInput").value
+            } else {
+              var title = "PSEGLI ES Secondary Map"
+            };
+            var print = new Print({
+              view: view,
+              // specify your own print service
+              printServiceUrl: "https://utility.arcgisonline.com/arcgis/rest/services/Utilities/PrintingTools/GPServer/Export%20Web%20Map%20Task",
+              templateOptions: {
+                title: title,
+                author: "PSEGLI",
+                copyright: "PSEGLI",
+                legendEnabled: false
+              }
+            });
+          });
+          function initializeFunction(){
+		var query = occsLayer.createQuery();
+		var maxDateQuery = {
+  			onStatisticField: "CreationDate",  
+  			outStatisticFieldName: "CreationDate_max",
+  			statisticType: "max"
+		};
+		query.outStatistics = [ maxDateQuery ];
+		occsLayer.queryFeatures(query)
+		   .then(function(response){
+		   var unix = response.features[0].attributes["CreationDate_max"];
+		   var date = new Date(unix);
+		   var stringISO= date.toISOString();
+		   console.log(stringISO);
+		   var finalstring = stringISO.substring(0,10);
+		   console.log(finalstring);
+		   updateString = finalstring;
+		   console.log(updateString);
+		   
+		   document.getElementById("initialize").style.visibility = 'hidden';
+		});
+		};
+          // Add widget to the top right corner of the view
+          //view.ui.add(print, "top-right");
+          function queryOccurrences() {
+            if (updateString =="") {
+              alert("Please initialize the app");
+              return;
+            };
+            var query = occsLayer.createQuery();
+            //   query.returnGeometry = true;
+            //query.outFields = ["*"];
+            var circuit = document.getElementById("circuitInput").value;
+            query.where = "FEEDERID ='" + circuit + "'" + "AND " + "CreationDate > DATE'" + updateString + "'";
+
+            query.outSpatialReference = view.spatialReference;
+            // query.geometry = wellBuffer;
+            //  query.spatialRelationship = "intersects";
+            PTrimLayer.definitionExpression = "Circuit = '" + circuit + "'" + "AND " + "EditDate > DATE'2019-05-01'";
+            PTrimLayer.refresh();
+            PSegmentsLayer.definitionExpression = "Circuit = '" + circuit + "'" ;
+            PSegmentsLayer.refresh();
+            return occsLayer.queryFeatures(query);
+
+            
+          }
+          // display the query results in the
+          // view and print the number of results to the DOM
+          function displayResults(results) {
+            
+            resultsLayer.removeAll();
+            var features = results.features.map(function(graphic) {
+              graphic.symbol = {
+                type: "simple-line", // autocasts as new SimpleMarkerSymbol()
+                style: "solid",
+                width: 6.5,
+                color: [255, 255, 0, 0.60]
+              };
+              return graphic;
+            });
+            var numOccs = features.length;
+            dom.byId("results").innerHTML = numOccs + " features found";
+            
+            resultsLayer.addMany(features);
+            view.goTo(features)
+          }
+	
+	  var initButton = dom.byId("initialize");
+          on(initButton, "click", initializeFunction);
+	  
+        });
+    </script>
+
+  </head>
+
+  <body>
+    <div id="viewDiv"></div>
+    <div id="infoDiv" class="esri-widget">
+      <button id="initialize" class="esri-input" style="background-color:red">Initialize</button>
+      <select id="circuitInput" class="esri-input"></select>
+      <button id="query-occs" class="esri-input">Query Circuit</button>
+      
+      <button id="next" class="esri-input">></button>
+      <button id="print" class="esri-input">Print</button>
+      <button id="draw" class="esri-input">Draw</button>
+      <button id="measure" class="esri-input">Measure</button>
+      <button id="basemap" class="esri-input">Basemaps</button>
+      <button id="close" class="esri-input">X</button>
+      <br>
+      <div id="results"></div>
+    </div>
+    <div id="fixedKey">
+      <img src="key.png" alt="key" width="143.33" height="51.33">
+    </div>
+  </body>
+
+</html>
