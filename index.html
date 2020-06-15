@@ -155,7 +155,7 @@
           //construct renderer for Segments Layer
           var pSegRenderer = {
             type: "unique-value", // autocasts as new UniqueValueRenderer()
-            field: "TrimRating2019",
+            field: "TrimRating",
             //defaultSymbol: { 
             // type: "simple-marker", 
             //size: 6, 
@@ -188,8 +188,8 @@
                 width: "3px"
               }
             }, {
-              //All features with value of "N" will be gray
-              value: "N",
+              //All features with value of "B" will be gray
+              value: "B",
               symbol: {
                 type: "simple-line",
                 color: "gray",
@@ -254,7 +254,7 @@
           var PSegmentsLayer = new FeatureLayer({
             url: "https://services1.arcgis.com/0cYxNkh7FJosf1xi/arcgis/rest/services/SpanSegments2021_06082020/FeatureServer/0",
             definitionExpression: "Circuit IN ("+"'" + pTrim2021.join("','") + "'"+")",
-            //renderer: pSegRenderer,
+            renderer: pSegRenderer,
             minScale: 24000,
             popupTemplate: popupPTrim,
             labelingInfo:[labelClass]
