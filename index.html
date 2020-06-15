@@ -156,13 +156,12 @@
           var pSegRenderer = {
             type: "unique-value", // autocasts as new UniqueValueRenderer()
             field: "TrimRating",
-            //defaultSymbol: { 
-            // type: "simple-marker", 
-            //size: 6, 
-            // outline: {
-            //   color: "black",
-            //   size: 1
-            // } },  // 
+            defaultSymbol: { 
+             type: "simple-line", 
+            size: 4, 
+	    color: "black",
+	    width: "4px"
+	    },  // 
             uniqueValueInfos: [{
               // All features with value of "Heavy" will be red
               value: "H",
