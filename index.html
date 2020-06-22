@@ -217,6 +217,11 @@
             "title": "{Street} Poles {Poles}",
             "content": "Primary:{PRI_ID}<br>Secondary:{SEC_ID}<br>Circuit:{Circuit}"
           };
+	  var popupPSeg = {
+            "title": "{STREETNAME} Poles {Poles}",
+            "content": "Primary:{PRI_ID}<br>Secondary:{SEC_ID}<br>Circuit:{Circuit}<br> Location: {HWYRP} <br> TrimRating: {TrimRating}"
+          };    
+	      
           //construct labels for Prescriptive Trim layer:
           const labelClass = {
             // autocasts as new LabelClass()
@@ -255,7 +260,7 @@
             definitionExpression: "Circuit IN ("+"'" + pTrim2021.join("','") + "'"+")",
             renderer: pSegRenderer,
             minScale: 24000,
-            popupTemplate: popupPTrim,
+            popupTemplate: popupPSeg,
             labelingInfo:[labelClass]
           });
           var occsUrl =
